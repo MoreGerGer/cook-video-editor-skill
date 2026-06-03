@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cook Video Editor"
+  short_description: "Edit short-form cooking videos from step-aligned footage."
+  default_prompt: "Use the cook-video-editor skill to turn this cooking footage directory into a vertical short-form video with subtitles, cover, and project files."

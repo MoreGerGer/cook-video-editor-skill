@@ -203,7 +203,7 @@ def write_srt(rows: list[dict[str, str]]) -> list[tuple[float, float, Path]]:
     return events
 
 
-def burn_subtitles(events: list[tuple[float, float, Path]]) -> None:
+def burn_subtitles(events: list[tuple[float, float, Path]], rows: list[dict[str, str]]) -> None:
     cmd = ["ffmpeg", "-hide_banner", "-y", "-i", str(BASE_VIDEO)]
     for _, _, image_path in events:
         cmd.extend(["-loop", "1", "-i", str(image_path)])
@@ -214,13 +214,56 @@ def burn_subtitles(events: list[tuple[float, float, Path]]) -> None:
         out = f"[v{i}]"
         chain.append(f"{current}[{i}:v]overlay=0:0:enable='between(t,{start:.3f},{end:.3f})'{out}")
         current = out
+    subscribe_starts = [
+        start for (start, _, _), row in zip(events, rows)
+        if "订阅" in row.get("zh", "") or "subscribe" in row.get("en", "").lower()
+    ]
+    audio_map = "0:a:0?"
+    if subscribe_starts:
+        ding_inputs = []
+        base_audio = "[0:a:0]"
+        for i, start in enumerate(subscribe_starts):
+            ding_start = start + 1.5
+            duck_start = ding_start - 0.10
+            duck_end = ding_start + 2.20
+            delay_ms = int(round(ding_start * 1000))
+            base_label = f"[base{i}]"
+            label = f"[ding{i}]"
+            main_label = f"[dingmain{i}]"
+            hit_label = f"[dinghit{i}]"
+            chain.append(
+                f"{base_audio}volume=volume=0.30:"
+                f"enable='between(t,{duck_start:.3f},{duck_end:.3f})'{base_label}"
+            )
+            base_audio = base_label
+            chain.append(
+                "sine=frequency=2800:duration=2.00:sample_rate=48000,"
+                "afade=t=in:st=0:d=0.02,"
+                f"afade=t=out:st=0.35:d=1.65{main_label}"
+            )
+            chain.append(
+                "sine=frequency=5600:duration=0.25:sample_rate=48000,"
+                "afade=t=in:st=0:d=0.01,"
+                f"afade=t=out:st=0.08:d=0.17{hit_label}"
+            )
+            chain.append(
+                f"{main_label}{hit_label}"
+                "amix=inputs=2:duration=longest:dropout_transition=0,"
+                f"adelay={delay_ms}|{delay_ms},volume=1.995{label}"
+            )
+            ding_inputs.append(label)
+        audio_map = "[aout]"
+        chain.append(
+            f"{base_audio}{''.join(ding_inputs)}"
+            f"amix=inputs={len(ding_inputs) + 1}:duration=first:dropout_transition=0[aout]"
+        )
     filter_complex = ";".join(chain)
     FILTER_FILE.write_text(filter_complex, encoding="utf-8")
 
     cmd.extend([
         "-filter_complex", filter_complex,
         "-map", current,
-        "-map", "0:a:0?",
+        "-map", audio_map,
         "-c:v", "libx264",
         "-preset", "medium",
         "-crf", "18",
@@ -237,7 +280,7 @@ def burn_subtitles(events: list[tuple[float, float, Path]]) -> None:
 def main() -> None:
     rows = read_plan()
     events = write_srt(rows)
-    burn_subtitles(events)
+    burn_subtitles(events, rows)
 
 
 if __name__ == "__main__":

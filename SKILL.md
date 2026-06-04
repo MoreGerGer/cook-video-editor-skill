@@ -23,6 +23,18 @@ Use this default style unless the user provides another sample or explicit requi
 - Burn white subtitles with black stroke into the video.
 - Generate Chinese-primary multilingual `.srt`, Japanese-only `jp.srt`, and a cover `.jpg`.
 
+## Subscribe Ding Sound
+
+When the final subtitle contains a subscribe/follow prompt, add one clear ding reminder:
+
+- Trigger the ding `1.5s` after the subscribe subtitle appears.
+- Extend the final subscribe clip if needed so the full ding tail is not cut off.
+- Duck original audio to `30%` from `0.1s` before the ding until `0.2s` after it ends.
+- Use a single-ding design: `2800Hz` main tone for `2.0s`, plus a `5600Hz` bright attack for `0.25s`.
+- Fade in quickly, then fade out the main tone from `0.35s` over `1.65s`.
+- Do not use echo delays that create a second audible ding.
+- Verify the final filter graph has one ding event and the subscribe subtitle/tail are not truncated.
+
 ## Workflow
 
 1. Inspect the directory with `rg --files`, `find`, and `ffprobe`.
